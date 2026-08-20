@@ -1,4 +1,44 @@
-import React, { useState, useEffect, useMemo } from "react";
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>The Cutting Room</title>
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="theme-color" content="#2f3b36" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+<style>
+  html, body { margin: 0; padding: 0; background: #2f3b36; }
+  #root { min-height: 100vh; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useMemo } = React;
+
+window.storage = {
+  get: async (key) => {
+    const v = localStorage.getItem(key);
+    return v !== null ? { key, value: v, shared: false } : null;
+  },
+  set: async (key, value) => {
+    localStorage.setItem(key, value);
+    return { key, value, shared: false };
+  },
+  delete: async (key) => {
+    localStorage.removeItem(key);
+    return { key, deleted: true, shared: false };
+  },
+  list: async (prefix) => {
+    const keys = Object.keys(localStorage).filter((k) => !prefix || k.startsWith(prefix));
+    return { keys, prefix, shared: false };
+  },
+};
+
 
 /* ---------------- Palette data ---------------- */
 // hue: null = neutral (matches everything reasonably)
@@ -206,7 +246,7 @@ const CATEGORY_ORDER = ["Outerwear", "Sweater", "Top", "Bottom", "Shoes", "Acces
 const STORAGE_KEY = "closet-items";
 
 /* ---------------- Component ---------------- */
-export default function ClosetMatcher() {
+function ClosetMatcher() {
   const [items, setItems] = useState([]);
   const [loaded, setLoaded] = useState(false);
   const [tab, setTab] = useState("closet"); // closet | add | build | check
@@ -1682,3 +1722,9 @@ const styles = {
     fontWeight: 600,
   },
 };
+
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(<ClosetMatcher />);
+</script>
+</body>
+</html>
