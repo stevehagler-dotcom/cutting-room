@@ -42,6 +42,8 @@ function setSyncStatus(text) {
   if (el) el.textContent = text;
 }
 
+const saveTimers = {};
+
 window.storage = {
   get: async (key) => {
     try {
@@ -49,6 +51,11 @@ window.storage = {
         SUPABASE_URL + "/kv_store?key=eq." + encodeURIComponent(key) + "&select=value",
         { headers: sbHeaders() }
       );
+      if (res.status === 429) {
+        setSyncStatus("rate limited — using local copy");
+        const v = localStorage.getItem(key);
+        return v !== null ? { key, value: v, shared: false } : null;
+      }
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
       setSyncStatus("synced");
@@ -64,25 +71,37 @@ window.storage = {
       return v !== null ? { key, value: v, shared: false } : null;
     }
   },
-  set: async (key, value) => {
-    localStorage.setItem(key, value); // always keep a local fallback copy too
-    try {
-      const res = await fetch(SUPABASE_URL + "/kv_store?on_conflict=key", {
-        method: "POST",
-        headers: sbHeaders({
-          "Content-Type": "application/json",
-          Prefer: "resolution=merge-duplicates,return=representation",
-        }),
-        body: JSON.stringify({ key, value }),
-      });
-      if (!res.ok) throw new Error(await res.text());
-      setSyncStatus("synced");
-      return { key, value, shared: false };
-    } catch (e) {
-      setSyncStatus("offline (saved locally only)");
-      console.error("Supabase sync failed, saved locally instead:", e);
-      return { key, value, shared: false };
-    }
+  // Debounced: rapid successive edits (typing, quick taps) coalesce into a single
+  // network write ~700ms after the last change, instead of one request per change.
+  set: (key, value) => {
+    localStorage.setItem(key, value); // local copy is always saved immediately
+    return new Promise((resolve) => {
+      if (saveTimers[key]) clearTimeout(saveTimers[key]);
+      saveTimers[key] = setTimeout(async () => {
+        try {
+          const res = await fetch(SUPABASE_URL + "/kv_store?on_conflict=key", {
+            method: "POST",
+            headers: sbHeaders({
+              "Content-Type": "application/json",
+              Prefer: "resolution=merge-duplicates,return=representation",
+            }),
+            body: JSON.stringify({ key, value }),
+          });
+          if (res.status === 429) {
+            setSyncStatus("rate limited — saved locally, will retry");
+            resolve({ key, value, shared: false });
+            return;
+          }
+          if (!res.ok) throw new Error(await res.text());
+          setSyncStatus("synced");
+          resolve({ key, value, shared: false });
+        } catch (e) {
+          setSyncStatus("offline (saved locally only)");
+          console.error("Supabase sync failed, saved locally instead:", e);
+          resolve({ key, value, shared: false });
+        }
+      }, 700);
+    });
   },
   delete: async (key) => {
     localStorage.removeItem(key);
