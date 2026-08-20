@@ -65,26 +65,27 @@ const SWATCHES = [
   { name: "Lavender", hex: "#8f8fc2", hue: 250, neutral: false },
 ];
 
-const CATEGORIES = ["Top", "Bottom", "Outerwear", "Shoes", "Accessory"];
+const CATEGORIES = ["Top", "Sweater", "Bottom", "Outerwear", "Shoes", "Accessory"];
 const PATTERNS = ["Solid", "Striped", "Patterned"];
 const FORMALITY = ["Casual", "Smart", "Formal"];
+const OCCASIONS = ["Workout", "Casual", "Work", "Going Out", "Loungewear", "Travel"];
 
 const swatch = (name) => SWATCHES.find((s) => s.name === name);
 
 /* ---------------- Sample closet (practice items) ---------------- */
 const SAMPLE_ITEMS = [
-  { label: "White Tee", category: "Top", color: swatch("White"), pattern: "Solid", formality: "Casual" },
-  { label: "Striped Oxford Shirt", category: "Top", color: swatch("Blue"), pattern: "Striped", formality: "Smart" },
-  { label: "Grey Wool Sweater", category: "Top", color: swatch("Grey"), pattern: "Solid", formality: "Smart" },
-  { label: "Black Jeans", category: "Bottom", color: swatch("Black"), pattern: "Solid", formality: "Casual" },
-  { label: "Beige Chinos", category: "Bottom", color: swatch("Beige"), pattern: "Solid", formality: "Smart" },
-  { label: "Olive Cargo Pants", category: "Bottom", color: swatch("Olive"), pattern: "Solid", formality: "Casual" },
-  { label: "Denim Jacket", category: "Outerwear", color: swatch("Denim"), pattern: "Solid", formality: "Casual" },
-  { label: "Navy Blazer", category: "Outerwear", color: swatch("Navy"), pattern: "Solid", formality: "Formal" },
-  { label: "White Sneakers", category: "Shoes", color: swatch("White"), pattern: "Solid", formality: "Casual" },
-  { label: "Brown Leather Boots", category: "Shoes", color: swatch("Brown"), pattern: "Solid", formality: "Smart" },
-  { label: "Burgundy Scarf", category: "Accessory", color: swatch("Burgundy"), pattern: "Solid", formality: "Formal" },
-  { label: "Mustard Patterned Tie", category: "Accessory", color: swatch("Mustard"), pattern: "Patterned", formality: "Formal" },
+  { label: "White Tee", category: "Top", color: swatch("White"), pattern: "Solid", formality: "Casual", occasions: ["Workout", "Casual", "Loungewear"] },
+  { label: "Striped Oxford Shirt", category: "Top", color: swatch("Blue"), pattern: "Striped", formality: "Smart", occasions: ["Work", "Going Out"] },
+  { label: "Grey Wool Sweater", category: "Sweater", color: swatch("Grey"), pattern: "Solid", formality: "Smart", occasions: ["Work", "Casual"] },
+  { label: "Black Jeans", category: "Bottom", color: swatch("Black"), pattern: "Solid", formality: "Casual", occasions: ["Casual", "Going Out"] },
+  { label: "Beige Chinos", category: "Bottom", color: swatch("Beige"), pattern: "Solid", formality: "Smart", occasions: ["Work", "Travel"] },
+  { label: "Olive Cargo Pants", category: "Bottom", color: swatch("Olive"), pattern: "Solid", formality: "Casual", occasions: ["Casual", "Travel"] },
+  { label: "Denim Jacket", category: "Outerwear", color: swatch("Denim"), pattern: "Solid", formality: "Casual", occasions: ["Casual", "Travel"] },
+  { label: "Navy Blazer", category: "Outerwear", color: swatch("Navy"), pattern: "Solid", formality: "Formal", occasions: ["Work", "Going Out"] },
+  { label: "White Sneakers", category: "Shoes", color: swatch("White"), pattern: "Solid", formality: "Casual", occasions: ["Workout", "Casual"] },
+  { label: "Brown Leather Boots", category: "Shoes", color: swatch("Brown"), pattern: "Solid", formality: "Smart", occasions: ["Work", "Going Out", "Travel"] },
+  { label: "Burgundy Scarf", category: "Accessory", color: swatch("Burgundy"), pattern: "Solid", formality: "Formal", occasions: ["Going Out"] },
+  { label: "Mustard Patterned Tie", category: "Accessory", color: swatch("Mustard"), pattern: "Patterned", formality: "Formal", occasions: ["Work", "Going Out"] },
 ];
 
 /* ---------------- Photo handling ---------------- */
@@ -162,6 +163,8 @@ function hueDiff(a, b) {
 
 function pairScore(a, b) {
   let score = 100;
+  let hardClash = false;
+  let bold = false;
   const reasons = [];
 
   if (a.color.neutral || b.color.neutral) {
@@ -171,17 +174,20 @@ function pairScore(a, b) {
     if (diff <= 40) {
       reasons.push(`${a.color.name} and ${b.color.name} sit close on the color wheel — a calm, tonal pairing.`);
     } else if (diff >= 150) {
+      bold = true;
       score -= 15;
       reasons.push(`${a.color.name} and ${b.color.name} are near-complementary — bold together, wear on purpose.`);
     } else {
-      score -= 30;
-      reasons.push(`${a.color.name} and ${b.color.name} are an awkward distance apart on the wheel — the classic "off" feeling.`);
+      hardClash = true;
+      score -= 45;
+      reasons.push(`${a.color.name} and ${b.color.name} don't relate on the color wheel — this reads as a mistake, not a style choice. Skip this pairing.`);
     }
   }
 
   if (a.pattern !== "Solid" && b.pattern !== "Solid") {
-    score -= 25;
-    reasons.push(`Two patterns (${a.pattern.toLowerCase()} + ${b.pattern.toLowerCase()}) are competing for attention.`);
+    hardClash = true;
+    score -= 35;
+    reasons.push(`Two patterns (${a.pattern.toLowerCase()} + ${b.pattern.toLowerCase()}) are fighting each other — pick one to be the statement piece.`);
   }
 
   const fLevels = FORMALITY;
@@ -191,15 +197,50 @@ function pairScore(a, b) {
     reasons.push(`${a.formality} meets ${b.formality} — a big formality jump.`);
   }
 
-  return { score: Math.max(0, score), reasons };
+  return { score: Math.max(0, score), hardClash, bold, reasons };
 }
 
-function verdict(score) {
+function verdict(score, hardClash, bold) {
+  if (hardClash) return { label: "Don't wear together", tone: "bad" };
+  if (bold) return { label: "Bold — wear with intent", tone: "warn" };
   if (score >= 85) return { label: "Great match", tone: "good" };
   if (score >= 65) return { label: "Good pairing", tone: "good" };
-  if (score >= 45) return { label: "Bold — wear with intent", tone: "warn" };
   return { label: "Off", tone: "bad" };
 }
+
+// Groups match rows that are functionally identical (same category/color/pattern/formality) —
+// duplicate items like three blue button-downs score identically, so show them as one row.
+function groupMatches(matches) {
+  const map = new Map();
+  for (const m of matches) {
+    const key = `${m.item.category}|${m.item.color.name}|${m.item.pattern}|${m.item.formality}`;
+    if (!map.has(key)) {
+      map.set(key, { key, items: [], score: m.score, hardClash: m.hardClash, bold: m.bold, reasons: m.reasons });
+    }
+    map.get(key).items.push(m.item);
+  }
+  return Array.from(map.values()).sort((a, b) => {
+    if (a.hardClash !== b.hardClash) return a.hardClash ? 1 : -1;
+    return b.score - a.score;
+  });
+}
+
+// Scores a whole set of items pairwise — used for the outfit-ensemble preview.
+function scoreOutfit(itemsArr) {
+  if (itemsArr.length < 2) return null;
+  const pairs = [];
+  for (let i = 0; i < itemsArr.length; i++) {
+    for (let j = i + 1; j < itemsArr.length; j++) {
+      pairs.push({ a: itemsArr[i], b: itemsArr[j], ...pairScore(itemsArr[i], itemsArr[j]) });
+    }
+  }
+  const avg = Math.round(pairs.reduce((s, p) => s + p.score, 0) / pairs.length);
+  const anyClash = pairs.some((p) => p.hardClash);
+  const worst = pairs.slice().sort((a, b) => a.score - b.score)[0];
+  return { avg, pairs, anyClash, worst };
+}
+
+const CATEGORY_ORDER = ["Outerwear", "Sweater", "Top", "Bottom", "Shoes", "Accessory"];
 
 /* ---------------- Storage helpers ---------------- */
 const STORAGE_KEY = "closet-items";
@@ -211,17 +252,21 @@ function ClosetMatcher() {
   const [tab, setTab] = useState("closet"); // closet | add | build | check
   const [selectedBase, setSelectedBase] = useState(null);
   const [checkSelection, setCheckSelection] = useState([]);
+  const [editingId, setEditingId] = useState(null);
 
-  // form state
-  const [form, setForm] = useState({
+  const blankForm = {
     label: "",
     brand: "",
     category: "Top",
     color: SWATCHES[0],
     pattern: "Solid",
     formality: "Casual",
+    occasions: [],
     photo: null,
-  });
+  };
+
+  // form state
+  const [form, setForm] = useState(blankForm);
 
   useEffect(() => {
     (async () => {
@@ -249,9 +294,32 @@ function ClosetMatcher() {
 
   const addItem = () => {
     if (!form.label.trim()) return;
-    const newItem = { ...form, id: Date.now().toString() };
-    setItems((prev) => [...prev, newItem]);
-    setForm({ label: "", brand: "", category: "Top", color: SWATCHES[0], pattern: "Solid", formality: "Casual", photo: null });
+    if (editingId) {
+      setItems((prev) => prev.map((i) => (i.id === editingId ? { ...form, id: editingId } : i)));
+      setEditingId(null);
+    } else {
+      const newItem = { ...form, id: Date.now().toString() };
+      setItems((prev) => [...prev, newItem]);
+    }
+    setForm(blankForm);
+    setTab("closet");
+  };
+
+  const startEdit = (item) => {
+    setForm({ ...blankForm, ...item });
+    setEditingId(item.id);
+    setTab("add");
+  };
+
+  const startAddNew = () => {
+    setForm(blankForm);
+    setEditingId(null);
+    setTab("add");
+  };
+
+  const cancelEdit = () => {
+    setForm(blankForm);
+    setEditingId(null);
     setTab("closet");
   };
 
@@ -264,6 +332,7 @@ function ClosetMatcher() {
     setItems((prev) => prev.filter((i) => i.id !== id));
     setSelectedBase((b) => (b && b.id === id ? null : b));
     setCheckSelection((sel) => sel.filter((i) => i.id !== id));
+    if (editingId === id) cancelEdit();
   };
 
   const grouped = useMemo(() => {
@@ -278,7 +347,10 @@ function ClosetMatcher() {
     return items
       .filter((i) => i.id !== selectedBase.id)
       .map((i) => ({ item: i, ...pairScore(selectedBase, i) }))
-      .sort((a, b) => b.score - a.score);
+      .sort((a, b) => {
+        if (a.hardClash !== b.hardClash) return a.hardClash ? 1 : -1;
+        return b.score - a.score;
+      });
   }, [selectedBase, items]);
 
   const checkResult = useMemo(() => {
@@ -290,31 +362,45 @@ function ClosetMatcher() {
       }
     }
     const avg = Math.round(pairs.reduce((s, p) => s + p.score, 0) / pairs.length);
+    const anyClash = pairs.some((p) => p.hardClash);
 
     // Find the weakest-performing piece — the one dragging the outfit down the most.
+    // Items involved in an actual clash are prioritized over items that are merely lower-scoring.
     const itemAvgs = checkSelection.map((item) => {
       const relevant = pairs.filter((p) => p.a.id === item.id || p.b.id === item.id);
       const m = relevant.reduce((s, p) => s + p.score, 0) / relevant.length;
-      return { item, avg: m };
+      const hasClash = relevant.some((p) => p.hardClash);
+      return { item, avg: m, hasClash };
     });
-    itemAvgs.sort((x, y) => x.avg - y.avg);
+    itemAvgs.sort((x, y) => {
+      if (x.hasClash !== y.hasClash) return x.hasClash ? -1 : 1;
+      return x.avg - y.avg;
+    });
     const weakLink = itemAvgs[0];
 
     let suggestion = null;
-    if (weakLink && weakLink.avg < 82) {
+    if (weakLink && (weakLink.hasClash || weakLink.avg < 82)) {
       const rest = checkSelection.filter((i) => i.id !== weakLink.item.id);
       const candidates = items.filter(
         (i) => i.category === weakLink.item.category && !checkSelection.find((s) => s.id === i.id)
       );
       const scored = candidates
         .map((c) => {
-          const scores = rest.map((r) => pairScore(c, r).score);
-          const m = scores.length ? scores.reduce((s, v) => s + v, 0) / scores.length : 100;
-          return { candidate: c, avg: m };
+          const pairResults = rest.map((r) => pairScore(c, r));
+          const m = pairResults.length
+            ? pairResults.reduce((s, p) => s + p.score, 0) / pairResults.length
+            : 100;
+          const hasClash = pairResults.some((p) => p.hardClash);
+          return { candidate: c, avg: m, hasClash };
         })
-        .sort((x, y) => y.avg - x.avg);
+        .sort((x, y) => {
+          if (x.hasClash !== y.hasClash) return x.hasClash ? 1 : -1;
+          return y.avg - x.avg;
+        });
       const best = scored[0];
-      if (best && best.avg > weakLink.avg + 8) {
+      const meaningfullyBetter =
+        best && ((weakLink.hasClash && !best.hasClash) || (!best.hasClash && best.avg > weakLink.avg + 8));
+      if (meaningfullyBetter) {
         suggestion = {
           weak: weakLink.item,
           weakScore: Math.round(weakLink.avg),
@@ -326,7 +412,7 @@ function ClosetMatcher() {
       }
     }
 
-    return { avg, pairs, suggestion };
+    return { avg, pairs, suggestion, anyClash };
   }, [checkSelection, items]);
 
   const toggleCheckItem = (item) => {
@@ -363,7 +449,7 @@ function ClosetMatcher() {
         ].map(([key, label]) => (
           <button
             key={key}
-            onClick={() => setTab(key)}
+            onClick={() => (key === "add" ? startAddNew() : setTab(key))}
             style={{
               ...styles.navBtn,
               ...(tab === key ? styles.navBtnActive : {}),
@@ -379,13 +465,21 @@ function ClosetMatcher() {
           <ClosetView
             grouped={grouped}
             onRemove={removeItem}
-            onAdd={() => setTab("add")}
+            onEdit={startEdit}
+            onAdd={startAddNew}
             onLoadSample={loadSampleCloset}
           />
         )}
 
         {tab === "add" && (
-          <AddForm form={form} setForm={setForm} onSubmit={addItem} />
+          <AddForm
+            form={form}
+            setForm={setForm}
+            onSubmit={addItem}
+            isEditing={!!editingId}
+            onCancel={cancelEdit}
+            onDelete={() => removeItem(editingId)}
+          />
         )}
 
         {tab === "build" && (
@@ -415,6 +509,8 @@ function ClosetMatcher() {
 
 const GARMENT_PATHS = {
   Top: "M20 8 L26 3 H38 L44 8 L58 17 L49 27 L42 21 V59 H22 V21 L15 27 L6 17 Z",
+  Sweater:
+    "M18 10 L26 4 H29 C29 7 32 8 32 8 C32 8 35 7 35 4 H38 L46 10 L59 19 L51 28 L44 23 V58 H20 V23 L13 28 L5 19 Z M20 54 H44 V58 H20 Z",
   Bottom: "M17 4 H47 L46 18 L42 60 H33 L31 28 L29 60 H20 L16 18 Z",
   Outerwear: "M17 9 L26 3 H29 V9 H35 V3 H38 L47 9 L60 19 L51 29 L44 23 V59 H20 V23 L13 29 L4 19 Z",
   Shoes: "M4 42 H24 L34 30 L48 36 L60 40 V52 Q60 56 56 56 H4 Z",
@@ -474,6 +570,9 @@ function SwatchCard({ item, onClick, selected, actionIcon, onAction, showCheck }
         {item.color.name.toUpperCase()} · {item.pattern.toUpperCase()}
       </div>
       <div style={styles.cardMeta}>{item.formality.toUpperCase()}</div>
+      {item.occasions && item.occasions.length > 0 && (
+        <div style={styles.cardOccasions}>{item.occasions.join(" · ")}</div>
+      )}
       {onAction && (
         <span
           onClick={(e) => {
@@ -489,7 +588,7 @@ function SwatchCard({ item, onClick, selected, actionIcon, onAction, showCheck }
   );
 }
 
-function ClosetView({ grouped, onRemove, onAdd, onLoadSample }) {
+function ClosetView({ grouped, onRemove, onEdit, onAdd, onLoadSample }) {
   const total = Object.values(grouped).reduce((s, arr) => s + arr.length, 0);
   if (total === 0) {
     return (
@@ -514,6 +613,7 @@ function ClosetView({ grouped, onRemove, onAdd, onLoadSample }) {
           + add practice items
         </button>
       </div>
+      <p style={styles.checkHint}>Tap any item to edit it.</p>
       {CATEGORIES.map((cat) =>
         grouped[cat].length ? (
           <section key={cat} style={styles.section}>
@@ -523,7 +623,7 @@ function ClosetView({ grouped, onRemove, onAdd, onLoadSample }) {
                 <SwatchCard
                   key={item.id}
                   item={item}
-                  onClick={() => {}}
+                  onClick={() => onEdit(item)}
                   actionIcon="✕"
                   onAction={() => onRemove(item.id)}
                 />
@@ -536,7 +636,7 @@ function ClosetView({ grouped, onRemove, onAdd, onLoadSample }) {
   );
 }
 
-function AddForm({ form, setForm, onSubmit }) {
+function AddForm({ form, setForm, onSubmit, isEditing, onCancel, onDelete }) {
   const [photoBusy, setPhotoBusy] = useState(false);
 
   const handlePhoto = async (e) => {
@@ -555,6 +655,7 @@ function AddForm({ form, setForm, onSubmit }) {
 
   return (
     <div style={styles.formWrap}>
+      <h2 style={styles.sectionTitle}>{isEditing ? "Edit item" : "Add an item"}</h2>
       <label style={styles.label}>Item name</label>
       <input
         style={styles.input}
@@ -648,9 +749,42 @@ function AddForm({ form, setForm, onSubmit }) {
         ))}
       </div>
 
-      <button style={styles.primaryBtn} onClick={onSubmit}>
-        Pin to closet
-      </button>
+      <label style={styles.label}>Occasions (optional, pick any that fit)</label>
+      <div style={styles.chipRow}>
+        {OCCASIONS.map((o) => {
+          const active = form.occasions.includes(o);
+          return (
+            <button
+              key={o}
+              onClick={() =>
+                setForm({
+                  ...form,
+                  occasions: active ? form.occasions.filter((x) => x !== o) : [...form.occasions, o],
+                })
+              }
+              style={{ ...styles.chip, ...(active ? styles.chipActive : {}) }}
+            >
+              {o}
+            </button>
+          );
+        })}
+      </div>
+
+      <div style={styles.formActions}>
+        <button style={styles.primaryBtn} onClick={onSubmit}>
+          {isEditing ? "Save changes" : "Pin to closet"}
+        </button>
+        {isEditing && (
+          <>
+            <button style={styles.ghostBtn} onClick={onCancel}>
+              Cancel
+            </button>
+            <button style={styles.deleteBtn} onClick={onDelete}>
+              Delete item
+            </button>
+          </>
+        )}
+      </div>
     </div>
   );
 }
@@ -672,16 +806,76 @@ function CategoryFilter({ value, onChange }) {
   );
 }
 
+function OccasionFilter({ value, onChange }) {
+  const toggle = (o) => {
+    onChange(value.includes(o) ? value.filter((x) => x !== o) : [...value, o]);
+  };
+  return (
+    <div style={{ ...styles.chipRow, marginTop: 8 }}>
+      {OCCASIONS.map((o) => (
+        <button
+          key={o}
+          onClick={() => toggle(o)}
+          style={{ ...styles.filterChip, ...(value.includes(o) ? styles.filterChipActive : {}) }}
+        >
+          {o}
+        </button>
+      ))}
+      {value.length > 0 && (
+        <button style={styles.filterClear} onClick={() => onChange([])}>
+          clear
+        </button>
+      )}
+    </div>
+  );
+}
+
 function BuildOutfit({ items, selectedBase, setSelectedBase, matches }) {
   const [filter, setFilter] = useState("All");
+  const [occFilter, setOccFilter] = useState([]);
+  const [ensembleIds, setEnsembleIds] = useState(() => new Set());
+  const [expandedGroups, setExpandedGroups] = useState(() => new Set());
+
+  useEffect(() => {
+    setEnsembleIds(new Set());
+    setExpandedGroups(new Set());
+  }, [selectedBase?.id]);
+
+  const toggleEnsemble = (itemId) => {
+    setEnsembleIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(itemId)) next.delete(itemId);
+      else next.add(itemId);
+      return next;
+    });
+  };
+
+  const toggleExpand = (key) => {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
   if (items.length === 0) {
     return <p style={styles.emptyText}>Add a few items first, then pick one to build around.</p>;
   }
-  const visible = filter === "All" ? items : items.filter((i) => i.category === filter);
+  let visible = filter === "All" ? items : items.filter((i) => i.category === filter);
+  if (occFilter.length > 0) {
+    visible = visible.filter((i) => i.occasions && i.occasions.some((o) => occFilter.includes(o)));
+  }
+
+  const groups = groupMatches(matches);
+  const ensembleItems = selectedBase ? [selectedBase, ...items.filter((i) => ensembleIds.has(i.id))] : [];
+  const ensembleScore = scoreOutfit(ensembleItems);
+
   return (
     <div>
       <h2 style={styles.sectionTitle}>Pick a piece to build around</h2>
       <CategoryFilter value={filter} onChange={setFilter} />
+      <OccasionFilter value={occFilter} onChange={setOccFilter} />
       <div style={{ ...styles.grid, marginTop: 12 }}>
         {visible.map((item) => (
           <SwatchCard
@@ -691,25 +885,79 @@ function BuildOutfit({ items, selectedBase, setSelectedBase, matches }) {
             onClick={() => setSelectedBase(item)}
           />
         ))}
-        {visible.length === 0 && <p style={styles.emptyText}>No {filter.toLowerCase()} items yet.</p>}
+        {visible.length === 0 && <p style={styles.emptyText}>No matching items yet.</p>}
       </div>
 
       {selectedBase && (
         <>
+          <EnsemblePreview
+            items={ensembleItems}
+            scoreResult={ensembleScore}
+            onClear={() => setEnsembleIds(new Set())}
+            onRemove={(id) => toggleEnsemble(id)}
+            baseId={selectedBase.id}
+          />
+
           <h2 style={styles.sectionTitle}>Matches for {selectedBase.label}</h2>
+          <p style={styles.checkHint}>Tap a row to add it to the outfit preview above.</p>
           <div style={styles.matchList}>
-            {matches.map(({ item, score, reasons }) => {
-              const v = verdict(score);
+            {groups.map((g) => {
+              const v = verdict(g.score, g.hardClash, g.bold);
+              const isGroup = g.items.length > 1;
+              const expanded = expandedGroups.has(g.key);
+              const primary = g.items[0];
+              const anySelected = g.items.some((i) => ensembleIds.has(i.id));
+
               return (
-                <div key={item.id} style={styles.matchRow}>
-                  <GarmentIcon category={item.category} color={item.color.hex} pattern={item.pattern} uid={item.id} size={30} />
-                  <div style={styles.matchInfo}>
-                    <div style={styles.matchTop}>
-                      <span style={styles.matchName}>{item.label}</span>
-                      <span style={{ ...styles.badge, ...styles[`badge_${v.tone}`] }}>{v.label}</span>
+                <div key={g.key}>
+                  <div
+                    style={{ ...styles.matchRow, ...(anySelected ? styles.matchRowActive : {}) }}
+                    onClick={() => (isGroup ? toggleExpand(g.key) : toggleEnsemble(primary.id))}
+                  >
+                    <GarmentIcon category={primary.category} color={primary.color.hex} pattern={primary.pattern} uid={g.key} size={30} />
+                    <div style={styles.matchInfo}>
+                      <div style={styles.matchTop}>
+                        <span style={styles.matchName}>
+                          {primary.label}
+                          {isGroup && <span style={styles.matchCount}> +{g.items.length - 1} more</span>}
+                        </span>
+                        <span style={{ ...styles.badge, ...styles[`badge_${v.tone}`] }}>{v.label}</span>
+                      </div>
+                      <div style={styles.matchReason}>{g.reasons[0]}</div>
                     </div>
-                    <div style={styles.matchReason}>{reasons[0]}</div>
+                    {!isGroup && (
+                      <span style={{ ...styles.addCircle, ...(anySelected ? styles.addCircleOn : {}) }}>
+                        {anySelected ? "✓" : "+"}
+                      </span>
+                    )}
+                    {isGroup && <span style={styles.expandChevron}>{expanded ? "▲" : "▼"}</span>}
                   </div>
+
+                  {isGroup && expanded && (
+                    <div style={styles.groupExpand}>
+                      {g.items.map((it) => {
+                        const on = ensembleIds.has(it.id);
+                        return (
+                          <div
+                            key={it.id}
+                            style={styles.groupExpandRow}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleEnsemble(it.id);
+                            }}
+                          >
+                            <span style={styles.groupExpandLabel}>
+                              {it.label}
+                              {it.brand && <span style={styles.groupExpandBrand}> · {it.brand}</span>}
+                            </span>
+                            <span style={{ ...styles.addCircle, ...(on ? styles.addCircleOn : {}) }}>
+                              {on ? "✓" : "+"}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -720,12 +968,75 @@ function BuildOutfit({ items, selectedBase, setSelectedBase, matches }) {
   );
 }
 
+function EnsemblePreview({ items, scoreResult, onClear, onRemove, baseId }) {
+  const ordered = CATEGORY_ORDER.map((cat) => items.find((i) => i.category === cat)).filter(Boolean);
+  // include any categories not in the standard order, just in case
+  const extra = items.filter((i) => !CATEGORY_ORDER.includes(i.category));
+  const tiles = [...ordered, ...extra];
+
+  return (
+    <div style={styles.ensembleCard}>
+      <div style={styles.ensembleHeader}>
+        <span style={styles.ensembleTitle}>Your outfit</span>
+        {items.length > 1 && (
+          <button style={styles.ensembleClear} onClick={onClear}>
+            clear extras
+          </button>
+        )}
+      </div>
+
+      <div style={styles.ensembleTiles}>
+        {tiles.map((item) => (
+          <div key={item.id} style={styles.ensembleTile}>
+            {item.photo ? (
+              <img src={item.photo} alt={item.label} style={styles.ensembleTilePhoto} />
+            ) : (
+              <div style={styles.ensembleTileIconWrap}>
+                <GarmentIcon category={item.category} color={item.color.hex} pattern={item.pattern} uid={"ens-" + item.id} size={54} />
+              </div>
+            )}
+            <div style={styles.ensembleTileLabel}>{item.label}</div>
+            {item.id !== baseId && (
+              <span style={styles.ensembleTileRemove} onClick={() => onRemove(item.id)}>
+                ✕
+              </span>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {scoreResult ? (
+        <div style={styles.ensembleScoreRow}>
+          <span style={styles.ensembleScoreNum}>{scoreResult.avg}</span>
+          <span
+            style={{
+              ...styles.badge,
+              ...styles[`badge_${verdict(scoreResult.avg, scoreResult.anyClash).tone}`],
+            }}
+          >
+            {verdict(scoreResult.avg, scoreResult.anyClash).label}
+          </span>
+          {scoreResult.anyClash && (
+            <span style={styles.ensembleWorstNote}>{scoreResult.worst.reasons[0]}</span>
+          )}
+        </div>
+      ) : (
+        <p style={styles.ensembleHint}>Tap matches below to add them here and build the full look.</p>
+      )}
+    </div>
+  );
+}
+
 function CheckOutfit({ items, checkSelection, toggleCheckItem, checkResult, onSwap }) {
   const [filter, setFilter] = useState("All");
+  const [occFilter, setOccFilter] = useState([]);
   if (items.length === 0) {
     return <p style={styles.emptyText}>Add a few items first, then select today's outfit to check it.</p>;
   }
-  const visible = filter === "All" ? items : items.filter((i) => i.category === filter);
+  let visible = filter === "All" ? items : items.filter((i) => i.category === filter);
+  if (occFilter.length > 0) {
+    visible = visible.filter((i) => i.occasions && i.occasions.some((o) => occFilter.includes(o)));
+  }
   return (
     <div>
       <div style={styles.checkHeaderRow}>
@@ -736,6 +1047,7 @@ function CheckOutfit({ items, checkSelection, toggleCheckItem, checkResult, onSw
       </div>
       <p style={styles.checkHint}>Tap each piece you're wearing — they'll stack up with a ✓.</p>
       <CategoryFilter value={filter} onChange={setFilter} />
+      <OccasionFilter value={occFilter} onChange={setOccFilter} />
       <div style={{ ...styles.grid, marginTop: 12 }}>
         {visible.map((item) => (
           <SwatchCard
@@ -746,29 +1058,43 @@ function CheckOutfit({ items, checkSelection, toggleCheckItem, checkResult, onSw
             onClick={() => toggleCheckItem(item)}
           />
         ))}
-        {visible.length === 0 && <p style={styles.emptyText}>No {filter.toLowerCase()} items yet.</p>}
+        {visible.length === 0 && <p style={styles.emptyText}>No matching items yet.</p>}
       </div>
 
       {checkResult && (
         <div style={styles.resultCard}>
           <div style={styles.resultHeader}>
             <span style={styles.resultScore}>{checkResult.avg}</span>
-            <span style={{ ...styles.badge, ...styles[`badge_${verdict(checkResult.avg).tone}`] }}>
-              {verdict(checkResult.avg).label}
+            <span
+              style={{
+                ...styles.badge,
+                ...styles[`badge_${verdict(checkResult.avg, checkResult.anyClash).tone}`],
+              }}
+            >
+              {verdict(checkResult.avg, checkResult.anyClash).label}
             </span>
           </div>
           <div style={styles.resultList}>
             {checkResult.pairs
               .slice()
-              .sort((a, b) => a.score - b.score)
-              .map((p, idx) => (
-                <div key={idx} style={styles.resultLine}>
-                  <span style={styles.resultLineNames}>
-                    {p.a.label} + {p.b.label}
-                  </span>
-                  <span style={styles.resultLineReason}>{p.reasons[0]}</span>
-                </div>
-              ))}
+              .sort((a, b) => {
+                if (a.hardClash !== b.hardClash) return a.hardClash ? -1 : 1;
+                return a.score - b.score;
+              })
+              .map((p, idx) => {
+                const pv = verdict(p.score, p.hardClash, p.bold);
+                return (
+                  <div key={idx} style={styles.resultLine}>
+                    <div style={styles.resultLineTop}>
+                      <span style={styles.resultLineNames}>
+                        {p.a.label} + {p.b.label}
+                      </span>
+                      <span style={{ ...styles.badge, ...styles[`badge_${pv.tone}`] }}>{pv.label}</span>
+                    </div>
+                    <span style={styles.resultLineReason}>{p.reasons[0]}</span>
+                  </div>
+                );
+              })}
           </div>
 
           {checkResult.suggestion && checkResult.suggestion.replacement && (
@@ -900,6 +1226,14 @@ const styles = {
     borderColor: "#b8944f",
     color: "#f1ede4",
     fontWeight: 600,
+  },
+  filterClear: {
+    background: "transparent",
+    border: "none",
+    color: "#a8342b",
+    fontSize: 11.5,
+    textDecoration: "underline",
+    padding: "5px 6px",
   },
   page: {
     fontFamily: "'Inter', sans-serif",
@@ -1041,6 +1375,13 @@ const styles = {
     color: "#a9a397",
     letterSpacing: 0.5,
   },
+  cardOccasions: {
+    fontFamily: "'Space Mono', monospace",
+    fontSize: 8.5,
+    color: "#8fb894",
+    letterSpacing: 0.3,
+    marginTop: 3,
+  },
   cardRemove: {
     position: "absolute",
     top: 6,
@@ -1058,6 +1399,21 @@ const styles = {
     padding: "12px 24px",
     fontWeight: 600,
     fontSize: 14,
+  },
+  formActions: {
+    display: "flex",
+    gap: 10,
+    flexWrap: "wrap",
+    marginTop: 24,
+    alignItems: "center",
+  },
+  deleteBtn: {
+    background: "transparent",
+    border: "none",
+    color: "#a8342b",
+    fontSize: 13,
+    textDecoration: "underline",
+    marginLeft: "auto",
   },
   ghostBtn: {
     background: "transparent",
@@ -1156,7 +1512,140 @@ const styles = {
     borderRadius: 10,
     padding: 12,
     border: "1px dashed #5c6a62",
+    cursor: "pointer",
   },
+  matchRowActive: {
+    border: "1px solid #b8944f",
+    background: "#44534b",
+  },
+  matchCount: {
+    fontFamily: "'Space Mono', monospace",
+    fontSize: 10.5,
+    color: "#a9a397",
+    fontWeight: 400,
+  },
+  addCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: "50%",
+    border: "1.5px solid #6b7871",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: 14,
+    color: "#a9a397",
+    flexShrink: 0,
+  },
+  addCircleOn: {
+    background: "#b8944f",
+    borderColor: "#b8944f",
+    color: "#2f3b36",
+    fontWeight: 700,
+  },
+  expandChevron: {
+    color: "#a9a397",
+    fontSize: 11,
+    flexShrink: 0,
+    marginTop: 4,
+  },
+  groupExpand: {
+    marginTop: -6,
+    marginBottom: 4,
+    marginLeft: 12,
+    paddingLeft: 30,
+    borderLeft: "1px dashed #5c6a62",
+  },
+  groupExpandRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: "8px 10px",
+    cursor: "pointer",
+  },
+  groupExpandLabel: { fontSize: 12.5, color: "#e2ded4" },
+  groupExpandBrand: { color: "#b8944f", fontFamily: "'Space Mono', monospace", fontSize: 10.5 },
+  ensembleCard: {
+    background: "#3a4640",
+    border: "1px solid #b8944f",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 24,
+  },
+  ensembleHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
+  ensembleTitle: {
+    fontFamily: "'Fraunces', serif",
+    fontSize: 16,
+    fontWeight: 600,
+  },
+  ensembleClear: {
+    background: "transparent",
+    border: "none",
+    color: "#a8342b",
+    fontSize: 11.5,
+    textDecoration: "underline",
+  },
+  ensembleTiles: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: 12,
+    justifyContent: "center",
+    marginBottom: 12,
+  },
+  ensembleTile: {
+    position: "relative",
+    width: 84,
+    textAlign: "center",
+  },
+  ensembleTilePhoto: {
+    width: 72,
+    height: 72,
+    borderRadius: 10,
+    objectFit: "cover",
+    border: "1px solid rgba(255,255,255,0.2)",
+    margin: "0 auto",
+  },
+  ensembleTileIconWrap: {
+    width: 72,
+    height: 72,
+    borderRadius: 10,
+    background: "#2f3b36",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    margin: "0 auto",
+  },
+  ensembleTileLabel: {
+    fontSize: 10.5,
+    color: "#cfc9bc",
+    marginTop: 5,
+    lineHeight: 1.3,
+  },
+  ensembleTileRemove: {
+    position: "absolute",
+    top: -6,
+    right: 2,
+    width: 18,
+    height: 18,
+    borderRadius: "50%",
+    background: "#a8342b",
+    color: "#f4e9e7",
+    fontSize: 10,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    cursor: "pointer",
+  },
+  ensembleScoreRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    borderTop: "1px dashed #5c6a62",
+    paddingTop: 12,
+    flexWrap: "wrap",
+  },
+  ensembleScoreNum: { fontFamily: "'Fraunces', serif", fontSize: 22, fontWeight: 600 },
+  ensembleWorstNote: { fontSize: 11.5, color: "#b3ac9e", flexBasis: "100%", marginTop: 4 },
+  ensembleHint: { fontSize: 12.5, color: "#a9a397", textAlign: "center" },
   swatchDotSmall: {
     width: 20,
     height: 20,
@@ -1191,7 +1680,8 @@ const styles = {
   resultScore: { fontFamily: "'Fraunces', serif", fontSize: 32, fontWeight: 600 },
   resultList: { display: "flex", flexDirection: "column", gap: 10 },
   resultLine: { borderTop: "1px dashed #5c6a62", paddingTop: 10 },
-  resultLineNames: { fontSize: 13, fontWeight: 600, display: "block", marginBottom: 3 },
+  resultLineTop: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 3 },
+  resultLineNames: { fontSize: 13, fontWeight: 600 },
   resultLineReason: { fontSize: 12.5, color: "#b3ac9e", lineHeight: 1.4 },
   suggestionBox: {
     marginTop: 16,
