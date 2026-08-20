@@ -53,7 +53,11 @@ window.storage = {
       const data = await res.json();
       setSyncStatus("synced");
       if (data && data.length > 0) return { key, value: data[0].value, shared: false };
-      return null;
+      // Supabase has no row yet (first time this device has synced) — fall back to
+      // whatever's saved locally so existing data isn't lost, and let it migrate up
+      // automatically on the next save.
+      const localFallback = localStorage.getItem(key);
+      return localFallback !== null ? { key, value: localFallback, shared: false } : null;
     } catch (e) {
       setSyncStatus("offline (local fallback)");
       const v = localStorage.getItem(key);
