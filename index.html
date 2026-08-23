@@ -22,6 +22,7 @@
 <script type="text/babel" data-presets="react">
 const { useState, useEffect, useMemo } = React;
 
+
 // --- Supabase-backed storage shim ---
 // Mirrors the same get/set/delete/list interface the app already expects,
 // but persists to a Supabase Postgres table instead of localStorage —
@@ -155,11 +156,41 @@ const SWATCHES = [
 ];
 
 const CATEGORIES = ["Top", "Sweater", "Bottom", "Outerwear", "Shoes", "Accessory"];
-const PATTERNS = ["Solid", "Striped", "Patterned"];
+const PATTERNS = ["Solid", "Striped", "Checkered", "Patterned"];
 const FORMALITY = ["Casual", "Smart", "Formal"];
-const OCCASIONS = ["Workout", "Casual", "Work", "Going Out", "Loungewear", "Travel"];
+const OCCASIONS = ["Workout", "Casual", "Work", "Going Out", "Loungewear", "Travel", "Outdoor"];
 
 const swatch = (name) => SWATCHES.find((s) => s.name === name);
+
+/* ---------------- Restore pack: reconstructed from screenshots after data loss ---------------- */
+// Rebuilt from screenshots of the real closet (22 items). Photos couldn't be
+// recovered — only what was visible in the screenshots (name, brand, color,
+// pattern, formality). "Maroon t shirt" was mapped to Burgundy since the
+// original photo-based auto-tag ("White") looked like a background artifact.
+const RESTORE_ITEMS = [
+  { label: "Blue denim shirt", brand: "Noname", category: "Top", color: swatch("Navy"), pattern: "Solid", formality: "Casual", occasions: [] },
+  { label: "Blue cotton heavy", brand: "", category: "Top", color: swatch("Navy"), pattern: "Solid", formality: "Casual", occasions: [] },
+  { label: "Over shirt Japanese", brand: "Imperfect", category: "Top", color: swatch("Navy"), pattern: "Solid", formality: "Casual", occasions: [] },
+  { label: "Gray fleece", brand: "Patagonia", category: "Sweater", color: swatch("Grey"), pattern: "Solid", formality: "Casual", occasions: [] },
+  { label: "Maroon t shirt", brand: "Vuiri", category: "Top", color: swatch("Burgundy"), pattern: "Solid", formality: "Casual", occasions: [] },
+  { label: "White button down", brand: "Gant", category: "Top", color: swatch("White"), pattern: "Solid", formality: "Casual", occasions: [] },
+  { label: "Black zip heavy sweater", brand: "Triple aught", category: "Sweater", color: swatch("Black"), pattern: "Solid", formality: "Casual", occasions: [] },
+  { label: "Blue zip cotton sweater", brand: "Alternative", category: "Sweater", color: swatch("Blue"), pattern: "Solid", formality: "Casual", occasions: [] },
+  { label: "Black full zip sweater", brand: "Patagonia", category: "Sweater", color: swatch("Black"), pattern: "Solid", formality: "Casual", occasions: [] },
+  { label: "Button down", brand: "Gant hugger", category: "Top", color: swatch("Red"), pattern: "Patterned", formality: "Smart", occasions: [] },
+  { label: "Button down", brand: "Penguin", category: "Top", color: swatch("Blue"), pattern: "Patterned", formality: "Smart", occasions: [] },
+  { label: "Button down", brand: "Nordstrom", category: "Top", color: swatch("Denim"), pattern: "Patterned", formality: "Smart", occasions: [] },
+  { label: "Gray long sleeve shirt", brand: "Rag & Bone", category: "Top", color: swatch("Grey"), pattern: "Solid", formality: "Casual", occasions: [] },
+  { label: "Green denim pants", brand: "Gustin", category: "Bottom", color: swatch("Olive"), pattern: "Solid", formality: "Casual", occasions: [] },
+  { label: "Blue denim pants", brand: "Monday", category: "Bottom", color: swatch("Navy"), pattern: "Solid", formality: "Casual", occasions: [] },
+  { label: "Green corduroy", brand: "Gant cords green", category: "Bottom", color: swatch("Green"), pattern: "Solid", formality: "Casual", occasions: [] },
+  { label: "Light Gray jeans", brand: "Levi's 598", category: "Bottom", color: swatch("Grey"), pattern: "Solid", formality: "Smart", occasions: [] },
+  { label: "Red pants", brand: "Rag & Bone", category: "Bottom", color: swatch("Red"), pattern: "Solid", formality: "Smart", occasions: [] },
+  { label: "Blue bonobos pants", brand: "Bonobos chinos", category: "Bottom", color: swatch("Denim"), pattern: "Solid", formality: "Smart", occasions: [] },
+  { label: "White jeans", brand: "Levi's straight jeans", category: "Bottom", color: swatch("White"), pattern: "Solid", formality: "Casual", occasions: [] },
+  { label: "Faded jeans", brand: "Steve Alan", category: "Bottom", color: swatch("White"), pattern: "Solid", formality: "Casual", occasions: [] },
+  { label: "Prana pants", brand: "Prana hiking pants", category: "Bottom", color: swatch("Brown"), pattern: "Solid", formality: "Casual", occasions: [] },
+];
 
 /* ---------------- Sample closet (practice items) ---------------- */
 const SAMPLE_ITEMS = [
@@ -417,6 +448,11 @@ function ClosetMatcher() {
     setItems((prev) => [...prev, ...seeded]);
   };
 
+  const loadRestoreCloset = () => {
+    const seeded = RESTORE_ITEMS.map((it, idx) => ({ ...it, id: `restore-${idx}-${Date.now()}` }));
+    setItems((prev) => [...prev, ...seeded]);
+  };
+
   const removeItem = (id) => {
     setItems((prev) => prev.filter((i) => i.id !== id));
     setSelectedBase((b) => (b && b.id === id ? null : b));
@@ -557,6 +593,7 @@ function ClosetMatcher() {
             onEdit={startEdit}
             onAdd={startAddNew}
             onLoadSample={loadSampleCloset}
+            onRestore={loadRestoreCloset}
           />
         )}
 
@@ -677,13 +714,13 @@ function SwatchCard({ item, onClick, selected, actionIcon, onAction, showCheck }
   );
 }
 
-function ClosetView({ grouped, onRemove, onEdit, onAdd, onLoadSample }) {
+function ClosetView({ grouped, onRemove, onEdit, onAdd, onLoadSample, onRestore }) {
   const total = Object.values(grouped).reduce((s, arr) => s + arr.length, 0);
   if (total === 0) {
     return (
       <div style={styles.empty}>
         <p style={styles.emptyText}>Your closet is empty. Pin your first item.</p>
-        <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap", marginBottom: 14 }}>
           <button style={styles.primaryBtn} onClick={onAdd}>
             + Add an item
           </button>
@@ -691,6 +728,12 @@ function ClosetView({ grouped, onRemove, onEdit, onAdd, onLoadSample }) {
             Load practice closet
           </button>
         </div>
+        <button style={styles.restoreBtn} onClick={onRestore}>
+          Restore my closet (22 items, no photos)
+        </button>
+        <p style={styles.restoreHint}>
+          Rebuilt from your screenshots — names, brands, and colors are back. You'll need to re-add photos.
+        </p>
       </div>
     );
   }
@@ -1512,6 +1555,23 @@ const styles = {
     padding: "12px 24px",
     fontWeight: 500,
     fontSize: 14,
+  },
+  restoreBtn: {
+    background: "#8fb894",
+    color: "#1c2b20",
+    border: "none",
+    borderRadius: 24,
+    padding: "12px 24px",
+    fontWeight: 600,
+    fontSize: 14,
+  },
+  restoreHint: {
+    fontSize: 11.5,
+    color: "#a9a397",
+    marginTop: 10,
+    maxWidth: 280,
+    marginLeft: "auto",
+    marginRight: "auto",
   },
   ghostBtnSmall: {
     background: "transparent",
